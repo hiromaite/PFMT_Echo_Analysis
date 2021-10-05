@@ -11,10 +11,10 @@ def m_mode(cap, frame_count, frame_width, frame_height, cs_center, mean_width):
     # convert echo movie into M-mode picture by averaging with 'mean_width' at 'cs_center'
     m_mode_array = np.zeros((frame_height, frame_count), np.uint8)
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    for i in range(frame_count - 1):
+    for i in range(frame_count):
         _, frame = cap.read()
         colmun = np.zeros((frame_height, 3), np.uint8)
-        for j in range(mean_width - 1):
+        for j in range(mean_width):
             # calc. average in each rows(= num of mean_width)
             colmun[:, j] = frame[:, cs_center - int(mean_width / 2) + j, 0]
         merge = np.average(colmun, axis=1)
