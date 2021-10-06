@@ -30,6 +30,7 @@ def set_var():
     cs_center = scale.get()
     mean_width = list_.get()
     if (abs(cs_center - 150) + int(mean_width) < 150):
+        sub.withdraw()
         sub.quit()
     else:
         messagebox.showerror('Selection error...',
@@ -73,7 +74,15 @@ label_fig = ttk.Label(
     sub_frame,
     image=echo_image
 )
-label_fig.grid(row=0, column=0, sticky=(N, E, S, W))
+label_fig.grid(row=0, column=0, columnspan=2, sticky=(N, E, S, W))
+
+label_msg = ttk.Label(
+    sub_frame,
+    text='Use the slider(above) to select the position, and select the processing width from the pull-down list(below).',
+    justify='left',
+    wraplength=300
+)
+label_msg.grid(row=2, column=0, columnspan=2, sticky=(N, E, S, W))
 
 mean_val = StringVar()
 mean_val.set('3')
@@ -86,7 +95,7 @@ list_ = ttk.Spinbox(
     to=200,
     increment=1
 )
-list_.grid(row=0, column=1, sticky=(E))
+list_.grid(row=3, column=0, sticky=(E))
 
 var_scale = tkinter.IntVar()
 var_scale.set(150)
@@ -98,14 +107,14 @@ scale = ttk.Scale(
     from_=0,
     to=299
 )
-scale.grid(row=1, column=0, sticky=(N, E, S, W))
+scale.grid(row=1, column=0, columnspan=2, sticky=(N, E, S, W))
 
 button = ttk.Button(
     sub_frame,
     text='OK',
     command=lambda: set_var()
 )
-button.grid(row=1, column=1, padx=5, sticky=(E))
+button.grid(row=3, column=1, padx=5, sticky=(E))
 
 sub.mainloop()
 
