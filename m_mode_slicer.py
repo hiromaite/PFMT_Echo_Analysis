@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 def m_mode(cap, frame_count, frame_width, frame_height, cs_center, mean_width):
     # convert echo movie into M-mode picture by averaging with 'mean_width' at 'cs_center'
-    m_mode_array = np.zeros((frame_height, frame_count, 3), np.uint8)
+    m_mode_array = np.zeros((frame_height, frame_count, mean_width), np.uint8)
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     for i in range(frame_count):
         _, frame = cap.read()
