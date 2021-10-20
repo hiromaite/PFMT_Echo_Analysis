@@ -5,6 +5,8 @@ from tkinter.constants import *
 from PIL import Image, ImageTk
 
 import cv2
+from scipy import signal
+from scipy.stats import norm
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -46,7 +48,7 @@ except:
     exit()
 
 # Execution portion
-for file in tqdm(files):
+for file in files:
     path = os.path.dirname(file)
     filename = os.path.splitext(os.path.basename(file))[0]
     cap = cv2.VideoCapture(file)  # video object
@@ -60,6 +62,33 @@ for file in tqdm(files):
     m_mode_array = m_mode(cap, frame_count, frame_width,
                           frame_height, int(cs_center), int(mean_width))
 
+    # algorithm portion
+    out_data = np.zeros((frame_height, frame_count), np.float32)
+    maxid = [0] * frame_count
+    x_gauss = np.arange(-5, 5, 10/100)
+    weight = norm.pdf(x_gauss)
+    diff = 1  # orders of differentiation
+    for i in range(frame_count):
+        out_data[:, i] = np.convolve(
+            m_mode_array[:, i, 0], weight, mode='same')/np.sum(weight)
+        out_data[: -1*diff, i] = np.diff(out_data[:, i], diff)
+        maxid[i] = signal.argrelmax(out_data[: -1*diff, i], order=10)
+
+    # make video file from plot image, save init path
+    path_out = os.path.join(path, filename + '_DIFF2' + '.mp4')
+    four_cc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+    video = cv2.VideoWriter(path_out, four_cc, 8.0, (640, 480))
+
     x = np.arange(0, 18, 18/300)
-    plt.plot(x, m_mode_array[:, 150, 0])
-    plt.show()
+    for i in tqdm(range(frame_count), leave=False):
+        fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
+        ax.plot(x[: -1*diff], out_data[: -1*diff, i])
+        ax.plot(x[maxid[i]], np.squeeze(out_data[maxid[i], i]), 'ro')
+        ax.set_ylim(0, 4)
+        fig.canvas.draw()
+        image_array = np.array(fig.canvas.renderer.buffer_rgba())
+        img = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
+        video.write(img)
+        plt.close()
+
+    video.release
