@@ -98,3 +98,22 @@ for file in files:
         plt.close()
 
     video.release
+
+    path_out = os.path.join(path, filename + '_ECHO' + '.mp4')
+    four_cc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+    video = cv2.VideoWriter(path_out, four_cc, 8.0, (300, 300))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    for i in range(frame_count):
+        _, frame = cap.read()
+        for j in maxid[i]:
+            frame[j, 150:, 0] = 0
+            frame[j, 150:, 1] = 0
+            frame[j, 150:, 2] = 255
+        for j in minid[i]:
+            frame[j, 150:, 0] = 255
+            frame[j, 150:, 1] = 0
+            frame[j, 150:, 2] = 0
+        video.write(frame)
+
+    video.release
