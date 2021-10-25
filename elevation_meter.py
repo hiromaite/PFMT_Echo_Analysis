@@ -1,8 +1,7 @@
 import os
 import tkinter
-from tkinter import StringVar, filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 from tkinter.constants import *
-from PIL import Image, ImageTk
 
 import cv2
 from scipy import signal
@@ -64,8 +63,8 @@ for file in files:
 
     # algorithm portion
     out_data = np.zeros((frame_height, frame_count), np.float32)
-    maxid = [0] * frame_count
-    minid = [0] * frame_count
+    max_id = [0] * frame_count
+    min_id = [0] * frame_count
     x_gauss = np.arange(-5, 5, 10/100)
     weight = norm.pdf(x_gauss)
     diff = 1  # orders of differentiation
@@ -73,24 +72,45 @@ for file in files:
         out_data[:, i] = np.convolve(
             m_mode_array[:, i, 0], weight, mode='same')/np.sum(weight)
         out_data[: -1*diff, i] = np.diff(out_data[:, i], diff)
-        maxid[i] = signal.argrelmax(out_data[: -1*diff, i], order=10)
-        minid[i] = signal.argrelmin(out_data[: -1*diff, i], order=10)
+        max_id[i] = np.squeeze(signal.argrelmax(out_data[: -1*diff, i], order=10))
+        del_id = []
+        id = 0
+        for j in max_id[i]:
+            a = out_data[j ,i]
+            if out_data[j, i] < 1 and out_data[j, i] > -1:
+                del_id.append(id)
+            id += 1
+        temp_id = max_id[i]
+        for r in del_id[::-1]:
+            temp_id = np.delete(temp_id, r, 0)
+            max_id[i] = temp_id
+        min_id[i] = np.squeeze(signal.argrelmin(out_data[: -1*diff, i], order=10))
+        del_id = []
+        id = 0
+        for j in min_id[i]:
+            if out_data[j, i] < 1 and out_data[j, i] > -1:
+                del_id.append(id)
+            id += 1
+        temp_id = min_id[i]
+        for r in del_id[::-1]:
+            temp_id = np.delete(temp_id, r, 0)
+            min_id[i] = temp_id
 
     # make video file from plot image, save init path
-    path_out = os.path.join(path, filename + '_DIFF' + '.mp4')
+    path_out = os.path.join(path, filename + '_OUT' + '.mp4')
     four_cc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     video = cv2.VideoWriter(path_out, four_cc, 8.0, (640, 480))
 
     x = np.arange(0, 18, 18/300)
     for i in tqdm(range(frame_count), leave=False):
         fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
-        # ax.plot(x[: -1*diff], out_data[: -1*diff, i])
+        #ax.plot(x[: -1*diff], out_data[: -1*diff, i])
         ax.plot(x[:], m_mode_array[:, i, 0])
-        # ax.plot(x[maxid[i]], np.squeeze(out_data[maxid[i], i]), 'ro')
-        # ax.plot(x[minid[i]], np.squeeze(out_data[minid[i], i]), 'bo')
-        ax.plot(x[maxid[i]], np.squeeze(m_mode_array[maxid[i], i, 0]), 'ro')
-        ax.plot(x[minid[i]], np.squeeze(m_mode_array[minid[i], i, 0]), 'bo')
-        ax.set_ylim(0, 180)
+        #ax.plot(x[max_id[i]], np.squeeze(out_data[max_id[i], i]), 'ro')
+        #ax.plot(x[min_id[i]], np.squeeze(out_data[min_id[i], i]), 'bo')
+        ax.plot(x[max_id[i]], np.squeeze(m_mode_array[max_id[i], i, 0]), 'ro')
+        ax.plot(x[min_id[i]], np.squeeze(m_mode_array[min_id[i], i, 0]), 'bo')
+        ax.set_ylim(-4, 4)
         fig.canvas.draw()
         image_array = np.array(fig.canvas.renderer.buffer_rgba())
         img = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
@@ -106,11 +126,11 @@ for file in files:
 
     for i in range(frame_count):
         _, frame = cap.read()
-        for j in maxid[i]:
+        for j in max_id[i]:
             frame[j, 150:, 0] = 0
             frame[j, 150:, 1] = 0
             frame[j, 150:, 2] = 255
-        for j in minid[i]:
+        for j in min_id[i]:
             frame[j, 150:, 0] = 255
             frame[j, 150:, 1] = 0
             frame[j, 150:, 2] = 0
