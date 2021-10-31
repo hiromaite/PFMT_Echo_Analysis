@@ -2,6 +2,7 @@ import os
 import tkinter
 from tkinter import filedialog, messagebox
 from tkinter.constants import *
+import csv
 
 import cv2
 from scipy import signal
@@ -199,7 +200,14 @@ for counter, file in enumerate(files):
         out[counter // 2].extend([filename, depth_pelvic_floor,
                                  out[counter // 2][1] - depth_pelvic_floor])
 
+# test output
 if flg_test:
     print("{} files are converted into lifting height.".format(counter))
     print("For example, first data are below...")
     print(out[0])
+
+# output lifting height as a CSV file
+path_out = os.path.join(path, 'lifting_height_results.csv')
+with open(path_out, 'w', newline='') as out_file:
+    writer = csv.writer(out_file)
+    writer.writerows(out)
