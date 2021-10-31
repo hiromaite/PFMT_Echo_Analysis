@@ -10,40 +10,41 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-fl_rot = False  # flag to enable rotation function
+flg_rot = False  # flag to enable rotation function
+flg_test = False
 
 
 def draw_line(event, x, y, flags, param):
     # callback function when a mouse event occurs
-    global x_1, y_1, x_2, y_2, fl_first, fl_second, fl_cmpl
+    global x_1, y_1, x_2, y_2, flg_first, flg_second, flg_cmpl
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        if not(fl_first):
+        if not(flg_first):
             x_1, y_1 = x, y
             cv2.circle(img_draw, (x_1, y_1), 2, (0, 0, 255), thickness=1)
-            fl_first = True
-        elif not(fl_second):
+            flg_first = True
+        elif not(flg_second):
             x_2, y_2 = x, y
             cv2.circle(img_draw, (x_2, y_2), 2, (0, 0, 255), thickness=1)
-            fl_second = True
-        elif fl_first and fl_second:
-            fl_cmpl = True
+            flg_second = True
+        elif flg_first and flg_second:
+            flg_cmpl = True
 
 
 def rot_img(img):
     # get the coordinates of upper and bottom of the bladder for rotation
-    global x_1, y_1, x_2, y_2, fl_first, fl_second, fl_cmpl
+    global x_1, y_1, x_2, y_2, flg_first, flg_second, flg_cmpl
 
-    fl_first = False
-    fl_second = False
-    fl_cmpl = False
+    flg_first = False
+    flg_second = False
+    flg_cmpl = False
     x_1, y_1 = -1, -1
     x_2, y_2 = -1, -1
     cv2.namedWindow(winname='my_drawing')
     cv2.setMouseCallback('my_drawing', draw_line)
     while True:
         cv2.imshow('my_drawing', img_draw)
-        if (cv2.waitKey(1) & 0xFF == 27) or fl_cmpl:
+        if (cv2.waitKey(1) & 0xFF == 27) or flg_cmpl:
             break
     cv2.destroyAllWindows()
 
@@ -75,19 +76,20 @@ def rot_img(img):
         img_draw, trans, (width, height), flags=cv2.INTER_CUBIC)
 
     # test output
-    print("膀胱前壁は，x = {}，y = {}，".format(x_1, y_1))
-    print("膀胱底は，x = {}，y = {}，".format(x_2, y_2))
-    print("Mモード取得断面の中心は，x = {}です。".format(x_center))
-    while True:
-        cv2.imshow('result', img_draw_rotate)
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
-    return img_rot, x_center
+    if flg_test:
+        print("膀胱前壁は，x = {}，y = {}，".format(x_1, y_1))
+        print("膀胱底は，x = {}，y = {}，".format(x_2, y_2))
+        print("Mモード取得断面の中心は，x = {}です。".format(x_center))
+        while True:
+            cv2.imshow('result', img_draw_rotate)
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+        return img_rot, x_center
 
 
 # Constants for m-mode slicer
-cs_center = 150
-mean_width = 16
+cs_center = 150  # center of cross-section
+mean_width = 16  # diameter of ultra-sound wave beam
 
 # Open file select dialog, check file exist
 root = tkinter.Tk()
@@ -100,10 +102,17 @@ try:
     stat = os.stat(files[0])  # do try-catch with first file
 except:
     messagebox.showinfo('Information',
-                        "Execution has canceled in dialog window")
+                        "Execution has canceled in dialog window.")
+    exit()
+if len(files) % 2 != 0:
+    messagebox.showerror('Error!',
+                         "Select an even number of files.")
     exit()
 
-for file in files:
+out = [[] for i in range(len(files) // 2)]
+
+# iteration per file
+for counter, file in enumerate(files):
     # get file data, param.
     path = os.path.dirname(file)
     filename = os.path.splitext(os.path.basename(file))[0]
@@ -118,23 +127,25 @@ for file in files:
         channels = 1
 
     # test output
-    print("読み込まれたファイルの絶対パスは'{}'，".format(path))
-    print("ファイル名は'{}'，".format(filename))
-    print("画像の解像度は，幅:{}，高さ:{}です。".format(width, height))
+    if flg_test:
+        print("読み込まれたファイルの絶対パスは'{}'，".format(path))
+        print("ファイル名は'{}'，".format(filename))
+        print("画像の解像度は，幅:{}，高さ:{}です。".format(width, height))
 
-    if fl_rot:
-        img = rot_img(img)
-        if not(fl_cmpl):
+    # echo image rotation function, Not used at the start of PoC
+    if flg_rot:
+        img, cs_center = rot_img(img)
+        if not(flg_cmpl):
             break
 
-    # convolve echo data
-    m_mode_array = np.zeros((height), np.uint8)
+    # convolve echo image to one-D data
+    one_dim_data = np.zeros((height), np.uint8)
     colmun = np.zeros((height, mean_width), np.uint8)
     for i in range(mean_width):
         # calc. average in each rows(= num of mean_width)
         colmun[:, i] = img[:, int(cs_center - (mean_width / 2) + i), 0]
     merge = np.average(colmun, axis=1)
-    m_mode_array = merge
+    one_dim_data = merge
 
     # run algorizm
     out_data = np.zeros((height), np.float32)
@@ -144,7 +155,7 @@ for file in files:
     weight = norm.pdf(x_gauss)
     diff = 1  # orders of differentiation
     out_data = np.convolve(
-        m_mode_array[:], weight, mode='same')/np.sum(weight)
+        one_dim_data[:], weight, mode='same')/np.sum(weight)
     out_data[: -1*diff] = np.diff(out_data[:], diff)
     max_id = np.squeeze(signal.argrelmax(out_data[: -1*diff], order=10))
     del_id = []
@@ -170,12 +181,25 @@ for file in files:
         temp_id = np.delete(temp_id, r, 0)
         min_id = temp_id
 
-    x = np.arange(0, 18, 18/300)
-    fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
-    ax.plot(x, m_mode_array)
-    ax.plot(x[max_id], m_mode_array[max_id], 'ro')
-    ax.plot(x[min_id], m_mode_array[min_id], 'bo')
-    ax.set_ylim(0, 180)
-    fig.show()
+    # test output
+    if flg_test:
+        x = np.arange(0, 18, 18/300)
+        fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
+        ax.plot(x, one_dim_data)
+        ax.plot(x[max_id], one_dim_data[max_id], 'ro')
+        ax.plot(x[min_id], one_dim_data[min_id], 'bo')
+        ax.set_ylim(0, 180)
+        fig.show()
+        messagebox.showinfo('Information', "Execution has done")
 
-    messagebox.showinfo('Information', "Execution has done")
+    depth_pelvic_floor = max_id[0] * (17 / 300)
+    if counter % 2 == 0:
+        out[int(counter / 2)] = [filename, depth_pelvic_floor]
+    else:
+        out[counter // 2].extend([filename, depth_pelvic_floor,
+                                 out[counter // 2][1] - depth_pelvic_floor])
+
+if flg_test:
+    print("{} files are converted into lifting height.".format(counter))
+    print("For example, first data are below...")
+    print(out[0])
