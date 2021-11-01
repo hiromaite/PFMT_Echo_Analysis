@@ -193,12 +193,22 @@ for counter, file in enumerate(files):
         fig.show()
         messagebox.showinfo('Information', "Execution has done")
 
+    # append data into output
+    if len(max_id) == 0:
+        if counter % 2 == 0:
+            out[int(counter / 2)] = [filename, 'N/A']
+        else:
+            out[counter // 2].extend([filename, 'N/A', 'N/A'])
+        continue
     depth_pelvic_floor = max_id[0] * (17 / 300)
     if counter % 2 == 0:
         out[int(counter / 2)] = [filename, depth_pelvic_floor]
     else:
+        if out[counter // 2][1] == 'N/A':
+            out[counter // 2].extend([filename, depth_pelvic_floor, 'N/A'])
+            continue
         out[counter // 2].extend([filename, depth_pelvic_floor,
-                                 out[counter // 2][1] - depth_pelvic_floor])
+                                  out[counter // 2][1] - depth_pelvic_floor])
 
 # test output
 if flg_test:
