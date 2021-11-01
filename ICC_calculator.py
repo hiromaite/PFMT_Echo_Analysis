@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 flg_rot = False  # flag to enable rotation function
 flg_test = False
+flg_figure_out = True
 
 
 def draw_line(event, x, y, flags, param):
@@ -149,32 +150,31 @@ for counter, file in enumerate(files):
     one_dim_data = merge
 
     # run algorizm
-    out_data = np.zeros((height), np.float32)
     max_id = []
     min_id = []
     x_gauss = np.arange(-5, 5, 10/100)
     weight = norm.pdf(x_gauss)
     diff = 1  # orders of differentiation
-    out_data = np.convolve(
+    conv_data = np.convolve(
         one_dim_data[:], weight, mode='same')/np.sum(weight)
-    out_data[: -1*diff] = np.diff(out_data[:], diff)
-    max_id = np.squeeze(signal.argrelmax(out_data[: -1*diff], order=10))
+    diff_data = np.diff(conv_data[:], diff)
+    max_id = np.squeeze(signal.argrelmax(diff_data[: -1*diff], order=10))
     del_id = []
     id = 0
     for i in max_id:
-        a = out_data[i]
-        if out_data[i] < 1 and out_data[i] > -1:
+        a = diff_data[i]
+        if diff_data[i] < 1 and diff_data[i] > -1:
             del_id.append(id)
         id += 1
     temp_id = max_id
     for r in del_id[::-1]:
         temp_id = np.delete(temp_id, r, 0)
         max_id = temp_id
-    min_id = np.squeeze(signal.argrelmin(out_data[: -1*diff], order=10))
+    min_id = np.squeeze(signal.argrelmin(diff_data[: -1*diff], order=10))
     del_id = []
     id = 0
     for i in min_id:
-        if out_data[i] < 1 and out_data[i] > -1:
+        if diff_data[i] < 1 and diff_data[i] > -1:
             del_id.append(id)
         id += 1
     temp_id = min_id
@@ -193,13 +193,44 @@ for counter, file in enumerate(files):
         fig.show()
         messagebox.showinfo('Information', "Execution has done")
 
+    if flg_figure_out:
+        x = np.arange(0, 18, 18/300)
+        fig_out = plt.figure(figsize=(6.4, 4.8))  # default dpi = 180
+
+        ax1 = fig_out.add_subplot(2, 1, 1)
+        ax1.plot(x, one_dim_data)
+        ax1.plot(x, conv_data)
+        ax1.plot(x[max_id], one_dim_data[max_id], 'ro')
+        ax1.plot(x[min_id], one_dim_data[min_id], 'bo')
+        ax1.set_ylim(0, 180)
+        ax1.set_xlabel("Depth")
+        ax1.set_ylabel("Intensity")
+
+        ax2 = fig_out.add_subplot(2, 1, 2)
+        ax2.plot(x[: -1], diff_data)
+        ax2.set_ylim(-4, 4)
+        ax2.set_xlabel("Depth")
+        ax2.set_ylabel("Difference")
+
+        path_figure = os.path.join(path + '/figure', filename + '.png')
+        fig_out.savefig(path_figure)
+        plt.clf
+        plt.close()
+
     # append data into output
+    """
+    If no peak is found, treat as 'N/A'.
+    Even if there is a peak at the time of elevation,
+    if there is no peak at the time of relaxation,
+    it is treated as 'N/A' as the amount of elevation.
+    """
     if len(max_id) == 0:
         if counter % 2 == 0:
             out[int(counter / 2)] = [filename, 'N/A']
         else:
             out[counter // 2].extend([filename, 'N/A', 'N/A'])
         continue
+
     depth_pelvic_floor = max_id[0] * (17 / 300)
     if counter % 2 == 0:
         out[int(counter / 2)] = [filename, depth_pelvic_floor]
