@@ -12,8 +12,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 flg_rot = False  # flag to enable rotation function
-flg_test = False
-flg_figure_out = True
+flg_test = False  # for review
+flg_figure_out = False  # for review
 
 
 def draw_line(event, x, y, flags, param):
@@ -114,7 +114,7 @@ if len(files) % 2 != 0:
 out = [[] for i in range(len(files) // 2)]
 
 # iteration per file
-for counter, file in enumerate(files):
+for counter, file in enumerate(tqdm(files)):
     # get file data, param.
     path = os.path.dirname(file)
     filename = os.path.splitext(os.path.basename(file))[0]
@@ -162,8 +162,9 @@ for counter, file in enumerate(files):
     del_id = []
     id = 0
     for i in max_id:
-        a = diff_data[i]
-        if diff_data[i] < 1 and diff_data[i] > -1:
+        if i < 50 and 280 < i:
+            del_id.append(id)
+        elif -1 < diff_data[i] < 1:
             del_id.append(id)
         id += 1
     temp_id = max_id
@@ -174,7 +175,9 @@ for counter, file in enumerate(files):
     del_id = []
     id = 0
     for i in min_id:
-        if diff_data[i] < 1 and diff_data[i] > -1:
+        if i < 50 and 280 < i:
+            del_id.append(id)
+        elif -1 < diff_data[i] < 1:
             del_id.append(id)
         id += 1
     temp_id = min_id
@@ -203,7 +206,6 @@ for counter, file in enumerate(files):
         ax1.plot(x[max_id], one_dim_data[max_id], 'ro')
         ax1.plot(x[min_id], one_dim_data[min_id], 'bo')
         ax1.set_ylim(0, 180)
-        ax1.set_xlabel("Depth")
         ax1.set_ylabel("Intensity")
 
         ax2 = fig_out.add_subplot(2, 1, 2)
@@ -224,22 +226,57 @@ for counter, file in enumerate(files):
     if there is no peak at the time of relaxation,
     it is treated as 'N/A' as the amount of elevation.
     """
-    if len(max_id) == 0:
-        if counter % 2 == 0:
-            out[int(counter / 2)] = [filename, 'N/A']
+    if counter % 2 == 0:  # Processing of even-numbered files
+        if len(max_id) == 0:  # peak number is 0
+            out[counter // 2] = [filename, 'none', 'N/A', 'N/A']
+        elif len(max_id) == 1:  # peak number is 1
+            depth_peaks = max_id[0] * (17 / 300)
+            out[counter // 2] = [filename, 'single', depth_peaks, 'N/A']
+        else:  # peak number is 2 or higher
+            depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
+            out[counter // 2] = [filename, 'double', depth_peaks[0], depth_peaks[1]]
+        if len(min_id) == 0:
+            out[counter // 2].extend(['N/A'])
         else:
-            out[counter // 2].extend([filename, 'N/A', 'N/A'])
-        continue
+            depth_valley = min_id[1] * (17 / 300)
+            out[counter // 2].extend([depth_valley])
+    else:  # Processing of odd-numbered files
+        if len(max_id) == 0:
+            out[counter // 2].extend([filename, 'none', 'N/A', 'N/A'])
+        elif len(max_id) == 1:
+            depth_peaks = max_id[0] * (17 / 300)
+            out[counter // 2].extend([filename, 'single', depth_peaks, 'N/A'])
+        else:
+            depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
+            out[counter // 2].extend([filename, 'double', depth_peaks[0], depth_peaks[1]])
+        if len(min_id) == 0:
+            out[counter // 2].extend(['N/A'])
+        else:
+            depth_valley = min_id[1] * (17 / 300)
+            out[counter // 2].extend([depth_valley])
 
-    depth_pelvic_floor = max_id[0] * (17 / 300)
-    if counter % 2 == 0:
-        out[int(counter / 2)] = [filename, depth_pelvic_floor]
-    else:
-        if out[counter // 2][1] == 'N/A':
-            out[counter // 2].extend([filename, depth_pelvic_floor, 'N/A'])
-            continue
-        out[counter // 2].extend([filename, depth_pelvic_floor,
-                                  out[counter // 2][1] - depth_pelvic_floor])
+        # Calculated from peak group
+        if out[counter // 2][1] == 'none' or out[counter // 2][6] == 'none':
+            out[counter // 2].extend(['N/A'])
+        elif out[counter // 2][1] == 'double' and out[counter // 2][6] == 'double':
+            lifting_hight = [out[counter // 2][2] - out[counter // 2][7], out[counter // 2][3] - out[counter // 2][8]]
+            out[counter // 2].extend([max(lifting_hight)])
+        elif out[counter // 2][1] == 'single' and out[counter // 2][6] == 'single':
+            lifting_hight = out[counter // 2][2] - out[counter // 2][7]
+            out[counter // 2].extend([lifting_hight])
+        elif out[counter // 2][1] == 'double' and out[counter // 2][6] == 'single':
+            lifting_hight = [out[counter // 2][2] - out[counter // 2][7], out[counter // 2][3] - out[counter // 2][7]]
+            out[counter // 2].extend([max(lifting_hight)])
+        elif out[counter // 2][1] == 'single' and out[counter // 2][6] == 'double':
+            lifting_hight = [out[counter // 2][2] - out[counter // 2][7], out[counter // 2][2] - out[counter // 2][8]]
+            out[counter // 2].extend([max(lifting_hight)])
+
+        # Calculated from the end position of the pelvic floor muscle group
+        if out[counter // 2][4] == 'N/A' or out[counter // 2][9] == 'N/A':
+            out[counter // 2].extend(['N/A'])
+        else:
+            lifting_hight = out[counter // 2][4] - out[counter // 2][9]
+            out[counter // 2].extend([lifting_hight])
 
 # test output
 if flg_test:
