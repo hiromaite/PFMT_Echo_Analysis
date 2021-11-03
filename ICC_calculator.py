@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 flg_rot = False  # flag to enable rotation function
 flg_test = False  # for review
-flg_figure_out = False  # for review
+flg_figure_out = True  # for review
 
 
 def draw_line(event, x, y, flags, param):
@@ -175,7 +175,7 @@ for counter, file in enumerate(tqdm(files)):
     del_id = []
     id = 0
     for i in min_id:
-        if i < 50 and 280 < i:
+        if i < 50 or 280 < i:
             del_id.append(id)
         elif -1 < diff_data[i] < 1:
             del_id.append(id)
@@ -226,57 +226,69 @@ for counter, file in enumerate(tqdm(files)):
     if there is no peak at the time of relaxation,
     it is treated as 'N/A' as the amount of elevation.
     """
+    pair = counter // 2
     if counter % 2 == 0:  # Processing of even-numbered files
         if len(max_id) == 0:  # peak number is 0
-            out[counter // 2] = [filename, 'none', 'N/A', 'N/A']
+            out[pair] = [filename, 'none', 'N/A', 'N/A']
         elif len(max_id) == 1:  # peak number is 1
             depth_peaks = max_id[0] * (17 / 300)
-            out[counter // 2] = [filename, 'single', depth_peaks, 'N/A']
+            out[pair] = [filename, 'single', depth_peaks, 'N/A']
         else:  # peak number is 2 or higher
             depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
-            out[counter // 2] = [filename, 'double', depth_peaks[0], depth_peaks[1]]
+            out[pair] = [filename, 'double', depth_peaks[0], depth_peaks[1]]
         if len(min_id) == 0:
-            out[counter // 2].extend(['N/A'])
+            out[pair].extend(['N/A'])
         else:
-            depth_valley = min_id[1] * (17 / 300)
-            out[counter // 2].extend([depth_valley])
+            depth_valley = min_id[0] * (17 / 300)
+            out[pair].extend([depth_valley])
     else:  # Processing of odd-numbered files
         if len(max_id) == 0:
-            out[counter // 2].extend([filename, 'none', 'N/A', 'N/A'])
+            out[pair].extend([filename, 'none', 'N/A', 'N/A'])
         elif len(max_id) == 1:
             depth_peaks = max_id[0] * (17 / 300)
-            out[counter // 2].extend([filename, 'single', depth_peaks, 'N/A'])
+            out[pair].extend([filename, 'single', depth_peaks, 'N/A'])
         else:
             depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
-            out[counter // 2].extend([filename, 'double', depth_peaks[0], depth_peaks[1]])
+            out[pair].extend([filename, 'double', depth_peaks[0], depth_peaks[1]])
         if len(min_id) == 0:
-            out[counter // 2].extend(['N/A'])
+            out[pair].extend(['N/A'])
         else:
-            depth_valley = min_id[1] * (17 / 300)
-            out[counter // 2].extend([depth_valley])
+            depth_valley = min_id[0] * (17 / 300)
+            out[pair].extend([depth_valley])
 
         # Calculated from peak group
-        if out[counter // 2][1] == 'none' or out[counter // 2][6] == 'none':
-            out[counter // 2].extend(['N/A'])
-        elif out[counter // 2][1] == 'double' and out[counter // 2][6] == 'double':
-            lifting_hight = [out[counter // 2][2] - out[counter // 2][7], out[counter // 2][3] - out[counter // 2][8]]
-            out[counter // 2].extend([max(lifting_hight)])
-        elif out[counter // 2][1] == 'single' and out[counter // 2][6] == 'single':
-            lifting_hight = out[counter // 2][2] - out[counter // 2][7]
-            out[counter // 2].extend([lifting_hight])
-        elif out[counter // 2][1] == 'double' and out[counter // 2][6] == 'single':
-            lifting_hight = [out[counter // 2][2] - out[counter // 2][7], out[counter // 2][3] - out[counter // 2][7]]
-            out[counter // 2].extend([max(lifting_hight)])
-        elif out[counter // 2][1] == 'single' and out[counter // 2][6] == 'double':
-            lifting_hight = [out[counter // 2][2] - out[counter // 2][7], out[counter // 2][2] - out[counter // 2][8]]
-            out[counter // 2].extend([max(lifting_hight)])
+        if out[pair][1] == 'none' or out[pair][6] == 'none':
+            out[pair].extend(['N/A'])
+        elif out[pair][1] == 'double' and out[pair][6] == 'double':
+            lifting_hight = [out[pair][2] - out[pair][7], out[pair][3] - out[pair][8]]
+            out[pair].extend([max(lifting_hight)])
+        elif out[pair][1] == 'single' and out[pair][6] == 'single':
+            lifting_hight = out[pair][2] - out[pair][7]
+            out[pair].extend([lifting_hight])
+        elif out[pair][1] == 'double' and out[pair][6] == 'single':
+            lifting_hight = [out[pair][2] - out[pair][7], out[pair][3] - out[pair][7]]
+            out[pair].extend([max(lifting_hight)])
+        elif out[pair][1] == 'single' and out[pair][6] == 'double':
+            lifting_hight = [out[pair][2] - out[pair][7], out[pair][2] - out[pair][8]]
+            out[pair].extend([max(lifting_hight)])
 
         # Calculated from the end position of the pelvic floor muscle group
-        if out[counter // 2][4] == 'N/A' or out[counter // 2][9] == 'N/A':
-            out[counter // 2].extend(['N/A'])
+        if out[pair][4] == 'N/A' or out[pair][9] == 'N/A':
+            out[pair].extend(['N/A'])
         else:
-            lifting_hight = out[counter // 2][4] - out[counter // 2][9]
-            out[counter // 2].extend([lifting_hight])
+            lifting_hight = out[pair][4] - out[pair][9]
+            out[pair].extend([lifting_hight])
+        
+        # Select a plausible value
+        if out[pair][11] == 'N/A':
+            out[pair].extend([out[pair][10]])
+        else:
+            if out[pair][11] > 2 * out[pair][10]:
+                out[pair].extend([out[pair][11]])
+            elif out[pair][10] > 1.5 * out[pair][11]:
+                out[pair].extend([out[pair][11]])
+            else:
+                out[pair].extend([out[pair][10]])
 
 # test output
 if flg_test:
