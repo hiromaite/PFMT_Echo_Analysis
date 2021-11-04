@@ -152,7 +152,7 @@ for counter, file in enumerate(tqdm(files)):
     # run algorizm
     max_id = []
     min_id = []
-    x_gauss = np.arange(-5, 5, 10/100)
+    x_gauss = np.arange(-10, 10, 20/100)
     weight = norm.pdf(x_gauss)
     diff = 1  # orders of differentiation
     conv_data = np.convolve(
@@ -210,7 +210,7 @@ for counter, file in enumerate(tqdm(files)):
 
         ax2 = fig_out.add_subplot(2, 1, 2)
         ax2.plot(x[: -1], diff_data)
-        ax2.set_ylim(-4, 4)
+        ax2.set_ylim(-10, 10)
         ax2.set_xlabel("Depth")
         ax2.set_ylabel("Difference")
 
