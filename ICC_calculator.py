@@ -152,54 +152,98 @@ for counter, file in enumerate(tqdm(files)):
     # get the convolution integral with the Gaussian function
     x_gauss = np.arange(-10, 10, 20/100)
     weight = norm.pdf(x_gauss)
-    diff = 1  # orders of differentiation
     conv_data = np.convolve(
         one_dim_data[:], weight, mode='same')/np.sum(weight)
 
     # origin correction and normalization based on min and max
     max_conv_data = max(conv_data)
-    min_conv_data = min(conv_data)
-    conv_data_norm = ((conv_data - min_conv_data) /
-                      (max_conv_data - min_conv_data))
+    min_conv_data = min(conv_data[:165])
+    conv_data_norm = ((conv_data - min_conv_data)
+                      / (max_conv_data - min_conv_data))
+
+    # get the differential value
+    diff = 1  # order(s)
     diff_data = np.diff(conv_data_norm, diff)
 
-    # Get the indexes of the local maximum and minimum values,
-    # that are greater than the standard value within the specified interval
-    max_id = np.squeeze(signal.argrelmax(diff_data[: -1*diff], order=10))
-    del_id = []
-    id = 0
-    for i in max_id:
-        if i < 50 or 280 < i:
-            del_id.append(id)
-        elif -0.05 < diff_data[i] < 0.05:
-            del_id.append(id)
-        id += 1
-    temp_id = max_id
-    for r in del_id[::-1]:
-        temp_id = np.delete(temp_id, r, 0)
-        max_id = temp_id
+    # separate the silent area(background) from the sound area
+    silent_area = np.where((-0.02 < diff_data) & (diff_data < 0.02)
+                           & (conv_data_norm[: -1] < 0.1), 0, 0.05)
 
-    min_id = np.squeeze(signal.argrelmin(diff_data[: -1*diff], order=10))
-    del_id = []
-    id = 0
-    for i in min_id:
-        if i < 50 or 280 < i:
-            del_id.append(id)
-        elif -0.05 < diff_data[i] < 0.05:
-            del_id.append(id)
-        id += 1
-    temp_id = min_id
-    for r in del_id[::-1]:
-        temp_id = np.delete(temp_id, r, 0)
-        min_id = temp_id
+    # get the integral value for each sound area
+    interval_int_data = silent_area
+    for i in range(len(interval_int_data) - 1):
+        if silent_area[i + 1]:
+            interval_int_data[i + 1] = interval_int_data[i] + \
+                silent_area[i + 1]
+        mass_dist_data = interval_int_data
+    for i in range(len(mass_dist_data) - 1)[::-1]:
+        if interval_int_data[i - 1] and interval_int_data[i - 1] < interval_int_data[i]:
+            mass_dist_data[i - 1] = interval_int_data[i]
+    mass_dist_data[-1] = 0
+    for i in range(len(mass_dist_data)):
+        if not(mass_dist_data[i]):
+            break
+        mass_dist_data[i] = 0
+    max_mass_data = max(mass_dist_data)
+    mass_dist_data = mass_dist_data / (10 * max_mass_data)
+
+    # find the highest and second highest masses
+    mass_first = -1
+    mass_second = -1
+    for i in range(len(mass_dist_data)):
+        if mass_dist_data[i] > mass_first:
+            mass_second = mass_first
+            mass_first = mass_dist_data[i]
+        elif mass_dist_data[i] == mass_first:
+            pass
+        elif mass_dist_data[i] > mass_second:
+            mass_second = mass_dist_data[i]
+    mass_dist_data = np.where((mass_dist_data == mass_first)
+                              | (mass_dist_data == mass_second), mass_dist_data, 0)
+
+    # get the range of the mass region from the shallow side
+    id_shallow_start = -1
+    id_shallow_end = -1
+    id_deep_start = -1
+    id_deep_end = -1
+    for i in range(len(mass_dist_data) - 1):
+        if mass_dist_data[i + 1] > mass_dist_data[i]:
+            if id_shallow_start == -1:
+                id_shallow_start = i + 1
+            else:
+                id_deep_start = i + 1
+        elif mass_dist_data[i + 1] < mass_dist_data[i]:
+            if id_shallow_end == -1:
+                id_shallow_end = i + 1
+            else:
+                id_deep_end = i + 1
+
+    # append data into output
+    pair = counter // 2
+    if counter % 2 == 0:  # Processing of even-numbered files
+        if id_deep_start == -1:
+            depth = id_shallow_start * (17 / 300)
+        elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
+            depth = id_shallow_start * (17 / 300)
+        elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
+            depth = id_deep_start * (17 / 300)
+        out[pair] = [filename, depth]
+    else:
+        if id_deep_start == -1:
+            depth = id_shallow_start * (17 / 300)
+        elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
+            depth = id_shallow_start * (17 / 300)
+        elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
+            depth = id_deep_start * (17 / 300)
+        else:
+            depth = id_shallow_start * (17 / 300)
+        out[pair].extend([filename, depth, out[pair][1] - depth])
 
     # test output
     if flg_test:
         x = np.arange(0, 18, 18/300)
         fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
         ax.plot(x, one_dim_data)
-        ax.plot(x[max_id], one_dim_data[max_id], 'ro')
-        ax.plot(x[min_id], one_dim_data[min_id], 'bo')
         ax.set_ylim(0, 180)
         fig.show()
         messagebox.showinfo('Information', "Execution has done")
@@ -212,13 +256,13 @@ for counter, file in enumerate(tqdm(files)):
         ax1 = fig_out.add_subplot(2, 1, 1)
         ax1.plot(x, one_dim_data)
         ax1.plot(x, conv_data)
-        ax1.plot(x[max_id], one_dim_data[max_id], 'ro')
-        ax1.plot(x[min_id], one_dim_data[min_id], 'bo')
         ax1.set_ylim(0, 180)
         ax1.set_ylabel("Intensity")
 
         ax2 = fig_out.add_subplot(2, 1, 2)
         ax2.plot(x[: -1], diff_data)
+        #ax2.plot(x[: -1], silent_area)
+        ax2.plot(x[: -1], mass_dist_data)
         ax2.set_ylim(-0.1, 0.1)
         ax2.set_xlabel("Depth")
         ax2.set_ylabel("Difference")
@@ -227,81 +271,6 @@ for counter, file in enumerate(tqdm(files)):
         fig_out.savefig(path_figure)
         plt.clf
         plt.close()
-
-    # append data into output
-    """
-    If no peak is found, treat as 'N/A'.
-    Even if there is a peak at the time of elevation,
-    if there is no peak at the time of relaxation,
-    it is treated as 'N/A' as the amount of elevation.
-    """
-    pair = counter // 2
-    if counter % 2 == 0:  # Processing of even-numbered files
-        if len(max_id) == 0:  # peak number is 0
-            out[pair] = [filename, 'none', 'N/A', 'N/A']
-        elif len(max_id) == 1:  # peak number is 1
-            depth_peaks = max_id[0] * (17 / 300)
-            out[pair] = [filename, 'single', depth_peaks, 'N/A']
-        else:  # peak number is 2 or higher
-            depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
-            out[pair] = [filename, 'double', depth_peaks[0], depth_peaks[1]]
-        if len(min_id) == 0:
-            out[pair].extend(['N/A'])
-        else:
-            depth_valley = min_id[0] * (17 / 300)
-            out[pair].extend([depth_valley])
-    else:  # Processing of odd-numbered files
-        if len(max_id) == 0:
-            out[pair].extend([filename, 'none', 'N/A', 'N/A'])
-        elif len(max_id) == 1:
-            depth_peaks = max_id[0] * (17 / 300)
-            out[pair].extend([filename, 'single', depth_peaks, 'N/A'])
-        else:
-            depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
-            out[pair].extend(
-                [filename, 'double', depth_peaks[0], depth_peaks[1]])
-        if len(min_id) == 0:
-            out[pair].extend(['N/A'])
-        else:
-            depth_valley = min_id[0] * (17 / 300)
-            out[pair].extend([depth_valley])
-
-        # Calculated from peak group
-        if out[pair][1] == 'none' or out[pair][6] == 'none':
-            out[pair].extend(['N/A'])
-        elif out[pair][1] == 'double' and out[pair][6] == 'double':
-            lifting_hight = [out[pair][2] - out[pair]
-                             [7], out[pair][3] - out[pair][8]]
-            out[pair].extend([max(lifting_hight)])
-        elif out[pair][1] == 'single' and out[pair][6] == 'single':
-            lifting_hight = out[pair][2] - out[pair][7]
-            out[pair].extend([lifting_hight])
-        elif out[pair][1] == 'double' and out[pair][6] == 'single':
-            lifting_hight = [out[pair][2] - out[pair]
-                             [7], out[pair][3] - out[pair][7]]
-            out[pair].extend([max(lifting_hight)])
-        elif out[pair][1] == 'single' and out[pair][6] == 'double':
-            lifting_hight = [out[pair][2] - out[pair]
-                             [7], out[pair][2] - out[pair][8]]
-            out[pair].extend([max(lifting_hight)])
-
-        # Calculated from the end position of the pelvic floor muscle group
-        if out[pair][4] == 'N/A' or out[pair][9] == 'N/A':
-            out[pair].extend(['N/A'])
-        else:
-            lifting_hight = out[pair][4] - out[pair][9]
-            out[pair].extend([lifting_hight])
-
-        # Select a plausible value
-        if out[pair][11] == 'N/A':
-            out[pair].extend([out[pair][10]])
-        else:
-            if out[pair][11] > 2 * out[pair][10]:
-                out[pair].extend([out[pair][11]])
-            elif out[pair][10] > 1.5 * out[pair][11]:
-                out[pair].extend([out[pair][11]])
-            else:
-                out[pair].extend([out[pair][10]])
 
 # test output
 if flg_test:
