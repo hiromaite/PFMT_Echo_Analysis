@@ -149,35 +149,43 @@ for counter, file in enumerate(tqdm(files)):
     merge = np.average(colmun, axis=1)
     one_dim_data = merge
 
-    # run algorizm
-    max_id = []
-    min_id = []
+    # get the convolution integral with the Gaussian function
     x_gauss = np.arange(-10, 10, 20/100)
     weight = norm.pdf(x_gauss)
     diff = 1  # orders of differentiation
     conv_data = np.convolve(
         one_dim_data[:], weight, mode='same')/np.sum(weight)
-    diff_data = np.diff(conv_data[:], diff)
+
+    # origin correction and normalization based on min and max
+    max_conv_data = max(conv_data)
+    min_conv_data = min(conv_data)
+    conv_data_norm = ((conv_data - min_conv_data) /
+                      (max_conv_data - min_conv_data))
+    diff_data = np.diff(conv_data_norm, diff)
+
+    # Get the indexes of the local maximum and minimum values,
+    # that are greater than the standard value within the specified interval
     max_id = np.squeeze(signal.argrelmax(diff_data[: -1*diff], order=10))
     del_id = []
     id = 0
     for i in max_id:
-        if i < 50 and 280 < i:
+        if i < 50 or 280 < i:
             del_id.append(id)
-        elif -1 < diff_data[i] < 1:
+        elif -0.05 < diff_data[i] < 0.05:
             del_id.append(id)
         id += 1
     temp_id = max_id
     for r in del_id[::-1]:
         temp_id = np.delete(temp_id, r, 0)
         max_id = temp_id
+
     min_id = np.squeeze(signal.argrelmin(diff_data[: -1*diff], order=10))
     del_id = []
     id = 0
     for i in min_id:
         if i < 50 or 280 < i:
             del_id.append(id)
-        elif -1 < diff_data[i] < 1:
+        elif -0.05 < diff_data[i] < 0.05:
             del_id.append(id)
         id += 1
     temp_id = min_id
@@ -196,6 +204,7 @@ for counter, file in enumerate(tqdm(files)):
         fig.show()
         messagebox.showinfo('Information', "Execution has done")
 
+    # output processing results as a graph
     if flg_figure_out:
         x = np.arange(0, 18, 18/300)
         fig_out = plt.figure(figsize=(6.4, 4.8))  # default dpi = 180
@@ -210,7 +219,7 @@ for counter, file in enumerate(tqdm(files)):
 
         ax2 = fig_out.add_subplot(2, 1, 2)
         ax2.plot(x[: -1], diff_data)
-        ax2.set_ylim(-10, 10)
+        ax2.set_ylim(-0.1, 0.1)
         ax2.set_xlabel("Depth")
         ax2.set_ylabel("Difference")
 
@@ -249,7 +258,8 @@ for counter, file in enumerate(tqdm(files)):
             out[pair].extend([filename, 'single', depth_peaks, 'N/A'])
         else:
             depth_peaks = [max_id[0] * (17 / 300), max_id[1] * (17 / 300)]
-            out[pair].extend([filename, 'double', depth_peaks[0], depth_peaks[1]])
+            out[pair].extend(
+                [filename, 'double', depth_peaks[0], depth_peaks[1]])
         if len(min_id) == 0:
             out[pair].extend(['N/A'])
         else:
@@ -260,16 +270,19 @@ for counter, file in enumerate(tqdm(files)):
         if out[pair][1] == 'none' or out[pair][6] == 'none':
             out[pair].extend(['N/A'])
         elif out[pair][1] == 'double' and out[pair][6] == 'double':
-            lifting_hight = [out[pair][2] - out[pair][7], out[pair][3] - out[pair][8]]
+            lifting_hight = [out[pair][2] - out[pair]
+                             [7], out[pair][3] - out[pair][8]]
             out[pair].extend([max(lifting_hight)])
         elif out[pair][1] == 'single' and out[pair][6] == 'single':
             lifting_hight = out[pair][2] - out[pair][7]
             out[pair].extend([lifting_hight])
         elif out[pair][1] == 'double' and out[pair][6] == 'single':
-            lifting_hight = [out[pair][2] - out[pair][7], out[pair][3] - out[pair][7]]
+            lifting_hight = [out[pair][2] - out[pair]
+                             [7], out[pair][3] - out[pair][7]]
             out[pair].extend([max(lifting_hight)])
         elif out[pair][1] == 'single' and out[pair][6] == 'double':
-            lifting_hight = [out[pair][2] - out[pair][7], out[pair][2] - out[pair][8]]
+            lifting_hight = [out[pair][2] - out[pair]
+                             [7], out[pair][2] - out[pair][8]]
             out[pair].extend([max(lifting_hight)])
 
         # Calculated from the end position of the pelvic floor muscle group
@@ -278,7 +291,7 @@ for counter, file in enumerate(tqdm(files)):
         else:
             lifting_hight = out[pair][4] - out[pair][9]
             out[pair].extend([lifting_hight])
-        
+
         # Select a plausible value
         if out[pair][11] == 'N/A':
             out[pair].extend([out[pair][10]])
