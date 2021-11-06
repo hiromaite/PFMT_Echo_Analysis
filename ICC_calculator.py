@@ -146,14 +146,13 @@ for counter, file in enumerate(tqdm(files)):
     for i in range(mean_width):
         # calc. average in each rows(= num of mean_width)
         colmun[:, i] = img[:, int(cs_center - (mean_width / 2) + i), 0]
-    merge = np.average(colmun, axis=1)
-    one_dim_data = merge
+    one_dim_data = np.average(colmun, axis=1)
 
     # get the convolution integral with the Gaussian function
-    x_gauss = np.arange(-10, 10, 20/100)
+    x_gauss = np.arange(-10, 10, 20 / 100)
     weight = norm.pdf(x_gauss)
     conv_data = np.convolve(
-        one_dim_data[:], weight, mode='same')/np.sum(weight)
+        one_dim_data[:], weight, mode='same') / np.sum(weight)
 
     # origin correction and normalization based on min and max
     max_conv_data = max(conv_data)
@@ -170,15 +169,14 @@ for counter, file in enumerate(tqdm(files)):
                            & (conv_data_norm[: -1] < 0.1), 0, 0.05)
 
     # get the integral value for each sound area
-    interval_int_data = silent_area
-    for i in range(len(interval_int_data) - 1):
-        if silent_area[i + 1]:
-            interval_int_data[i + 1] = interval_int_data[i] + \
-                silent_area[i + 1]
-        mass_dist_data = interval_int_data
+    int_int_data = silent_area  # var for interval integral
+    for i in range(len(int_int_data) - 1):
+        if silent_area[i + 1]:  # 0 means False
+            int_int_data[i + 1] = int_int_data[i] + silent_area[i + 1]
+        mass_dist_data = int_int_data
     for i in range(len(mass_dist_data) - 1)[::-1]:
-        if interval_int_data[i - 1] and interval_int_data[i - 1] < interval_int_data[i]:
-            mass_dist_data[i - 1] = interval_int_data[i]
+        if int_int_data[i - 1] and int_int_data[i - 1] < int_int_data[i]:
+            mass_dist_data[i - 1] = int_int_data[i]
     mass_dist_data[-1] = 0
     for i in range(len(mass_dist_data)):
         if not(mass_dist_data[i]):
@@ -187,7 +185,7 @@ for counter, file in enumerate(tqdm(files)):
     max_mass_data = max(mass_dist_data)
     mass_dist_data = mass_dist_data / (10 * max_mass_data)
 
-    # find the highest and second highest masses
+    # find the highest and second highest masses(=peak group)
     mass_first = -1
     mass_second = -1
     for i in range(len(mass_dist_data)):
@@ -201,7 +199,7 @@ for counter, file in enumerate(tqdm(files)):
     mass_dist_data = np.where((mass_dist_data == mass_first)
                               | (mass_dist_data == mass_second), mass_dist_data, 0)
 
-    # get the range of the mass region from the shallow side
+    # get the range of the mass region(s) from the shallow side
     id_shallow_start = -1
     id_shallow_end = -1
     id_deep_start = -1
@@ -220,28 +218,31 @@ for counter, file in enumerate(tqdm(files)):
 
     # append data into output
     pair = counter // 2
+    cpd = 17 / 300  # centimeter per dot
     if counter % 2 == 0:  # Processing of even-numbered files
         if id_deep_start == -1:
-            depth = id_shallow_start * (17 / 300)
+            depth = id_shallow_start * cpd
         elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
-            depth = id_shallow_start * (17 / 300)
+            depth = id_shallow_start * cpd
         elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
-            depth = id_deep_start * (17 / 300)
+            depth = id_deep_start * cpd
+        else:
+            depth = id_shallow_start * cpd
         out[pair] = [filename, depth]
     else:
         if id_deep_start == -1:
-            depth = id_shallow_start * (17 / 300)
+            depth = id_shallow_start * cpd
         elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
-            depth = id_shallow_start * (17 / 300)
+            depth = id_shallow_start * cpd
         elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
-            depth = id_deep_start * (17 / 300)
+            depth = id_deep_start * cpd
         else:
-            depth = id_shallow_start * (17 / 300)
+            depth = id_shallow_start * cpd
         out[pair].extend([filename, depth, out[pair][1] - depth])
 
     # test output
     if flg_test:
-        x = np.arange(0, 18, 18/300)
+        x = np.arange(0, 17, 17/300)
         fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
         ax.plot(x, one_dim_data)
         ax.set_ylim(0, 180)
@@ -250,7 +251,7 @@ for counter, file in enumerate(tqdm(files)):
 
     # output processing results as a graph
     if flg_figure_out:
-        x = np.arange(0, 18, 18/300)
+        x = np.arange(0, 17, 17/300)
         fig_out = plt.figure(figsize=(6.4, 4.8))  # default dpi = 180
 
         ax1 = fig_out.add_subplot(2, 1, 1)
