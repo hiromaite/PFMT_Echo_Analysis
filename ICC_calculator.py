@@ -159,7 +159,7 @@ for counter, file in enumerate(tqdm(files)):
         one_dim_data[:], weight, mode='same') / np.sum(weight)
 
     # origin correction and normalization based on min and max
-    max_conv_data = max(conv_data)
+    max_conv_data = max(conv_data[15:-15])
     min_conv_data = min(conv_data[:165])
     conv_data_norm = ((conv_data - min_conv_data)
                       / (max_conv_data - min_conv_data))
@@ -272,7 +272,7 @@ for counter, file in enumerate(tqdm(files)):
         axes[1, 0].set_ylabel("Difference")
 
         fig_out.align_labels(axes)
-        
+
         path_figure = os.path.join(path + '/figure', filename + '.png')
         fig_out.savefig(path_figure)
         plt.clf
