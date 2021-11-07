@@ -15,6 +15,10 @@ flg_rot = False  # flag to enable rotation function
 flg_test = False  # for review
 flg_figure_out = True  # for review
 
+# For religious reasons, the direction of the tick marks on the diagram should be inward.
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+
 
 def draw_line(event, x, y, flags, param):
     # callback function when a mouse event occurs
@@ -252,22 +256,23 @@ for counter, file in enumerate(tqdm(files)):
     # output processing results as a graph
     if flg_figure_out:
         x = np.arange(0, 17, 17/300)
-        fig_out = plt.figure(figsize=(6.4, 4.8))  # default dpi = 180
+        fig_out, axes = plt.subplots(
+            nrows=2, ncols=1, squeeze=False, sharex='all', figsize=(6.4, 4.8))  # default dpi = 180
 
-        ax1 = fig_out.add_subplot(2, 1, 1)
-        ax1.plot(x, one_dim_data)
-        ax1.plot(x, conv_data)
-        ax1.set_ylim(0, 180)
-        ax1.set_ylabel("Intensity")
+        axes[0, 0].plot(x, one_dim_data)
+        axes[0, 0].plot(x, conv_data)
+        axes[0, 0].set_xlim(0, 17)
+        axes[0, 0].set_ylim(0, 180)
+        axes[0, 0].set_ylabel("Intensity")
 
-        ax2 = fig_out.add_subplot(2, 1, 2)
-        ax2.plot(x[: -1], diff_data)
-        #ax2.plot(x[: -1], silent_area)
-        ax2.plot(x[: -1], mass_dist_data)
-        ax2.set_ylim(-0.1, 0.1)
-        ax2.set_xlabel("Depth")
-        ax2.set_ylabel("Difference")
+        axes[1, 0].plot(x[: -1], diff_data)
+        axes[1, 0].plot(x[: -1], mass_dist_data)
+        axes[1, 0].set_ylim(-0.1, 0.1)
+        axes[1, 0].set_xlabel("Depth")
+        axes[1, 0].set_ylabel("Difference")
 
+        fig_out.align_labels(axes)
+        
         path_figure = os.path.join(path + '/figure', filename + '.png')
         fig_out.savefig(path_figure)
         plt.clf
