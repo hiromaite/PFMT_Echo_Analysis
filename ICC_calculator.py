@@ -5,9 +5,10 @@ from tkinter.constants import *
 import csv
 
 import cv2
+import numpy as np
+import scipy
 from scipy import signal
 from scipy.stats import norm
-import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -115,6 +116,7 @@ if len(files) % 2 != 0:
                          "Select an even number of files.")
     exit()
 
+# (option) make list to store the output data
 out = [[] for i in range(len(files) // 2)]
 
 # iteration per file
@@ -156,7 +158,7 @@ for counter, file in enumerate(tqdm(files)):
     x_gauss = np.arange(-10, 10, 20 / 100)
     weight = norm.pdf(x_gauss)
     conv_data = np.convolve(
-        one_dim_data[:], weight, mode='same') / np.sum(weight)
+        one_dim_data, weight, mode='same') / np.sum(weight)
 
     # origin correction and normalization based on min and max
     max_conv_data = max(conv_data[15:-15])
@@ -182,12 +184,15 @@ for counter, file in enumerate(tqdm(files)):
         if int_int_data[i - 1] and int_int_data[i - 1] < int_int_data[i]:
             mass_dist_data[i - 1] = int_int_data[i]
     mass_dist_data[-1] = 0
+    mass_dist_data_all = mass_dist_data.copy()
+    mass_dist_data_top = np.zeros(len(mass_dist_data), np.float16)
     for i in range(len(mass_dist_data)):
         if not(mass_dist_data[i]):
             break
         mass_dist_data[i] = 0
     max_mass_data = max(mass_dist_data)
     mass_dist_data = mass_dist_data / (10 * max_mass_data)
+    mass_dist_data_all = mass_dist_data_all / (10 * max_mass_data)
 
     # find the highest and second highest masses(=peak group)
     mass_first = -1
@@ -220,29 +225,30 @@ for counter, file in enumerate(tqdm(files)):
             else:
                 id_deep_end = i + 1
 
+    # select peak and define depth of bladder bottom
+    cpd = 17 / 300  # centimeter per dot
+    if id_deep_start == -1:  # when not detected double peak
+        id_bottom = id_shallow_start
+    elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
+        id_bottom = id_shallow_start
+    elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
+        id_bottom = id_deep_start
+    else:
+        id_bottom = id_shallow_start
+    depth_bottom = id_bottom * cpd
+
+    # select peak and define depth of bladder top
+    for i in range(1, id_bottom - 1)[::-1]:
+        if mass_dist_data_all[i] - mass_dist_data_all[i - 1] > 0:
+            break
+        mass_dist_data_top[i] = mass_dist_data_all[i]
+
     # append data into output
     pair = counter // 2
-    cpd = 17 / 300  # centimeter per dot
     if counter % 2 == 0:  # Processing of even-numbered files
-        if id_deep_start == -1:
-            depth = id_shallow_start * cpd
-        elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
-            depth = id_shallow_start * cpd
-        elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
-            depth = id_deep_start * cpd
-        else:
-            depth = id_shallow_start * cpd
-        out[pair] = [filename, depth]
+        out[pair] = [filename, depth_bottom]
     else:
-        if id_deep_start == -1:
-            depth = id_shallow_start * cpd
-        elif mass_dist_data[id_shallow_start] > mass_dist_data[id_deep_start]:
-            depth = id_shallow_start * cpd
-        elif (id_shallow_end - id_shallow_start) / 2 < (id_deep_start - id_shallow_end):
-            depth = id_deep_start * cpd
-        else:
-            depth = id_shallow_start * cpd
-        out[pair].extend([filename, depth, out[pair][1] - depth])
+        out[pair].extend([filename, depth_bottom, out[pair][1] - depth_bottom])
 
     # test output
     if flg_test:
@@ -267,6 +273,7 @@ for counter, file in enumerate(tqdm(files)):
 
         axes[1, 0].plot(x[: -1], diff_data)
         axes[1, 0].plot(x[: -1], mass_dist_data)
+        axes[1, 0].plot(x[: -1], mass_dist_data_top)
         axes[1, 0].set_ylim(-0.1, 0.1)
         axes[1, 0].set_xlabel("Depth")
         axes[1, 0].set_ylabel("Difference")
