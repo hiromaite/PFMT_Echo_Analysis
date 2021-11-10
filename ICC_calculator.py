@@ -238,17 +238,24 @@ for counter, file in enumerate(tqdm(files)):
     depth_bottom = id_bottom * cpd
 
     # select peak and define depth of bladder top
+    id_top = -1
     for i in range(1, id_bottom - 1)[::-1]:
         if mass_dist_data_all[i] - mass_dist_data_all[i - 1] > 0:
             break
         mass_dist_data_top[i] = mass_dist_data_all[i]
+    for i in range(len(mass_dist_data_top) - 1):
+        if mass_dist_data_top[i + 1] < mass_dist_data_top[i]:
+            id_top = i
+            break
+    depth_top = id_top * cpd
 
     # append data into output
     pair = counter // 2
     if counter % 2 == 0:  # Processing of even-numbered files
-        out[pair] = [filename, depth_bottom]
+        out[pair] = [filename, depth_bottom, depth_bottom - depth_top]
     else:
-        out[pair].extend([filename, depth_bottom, out[pair][1] - depth_bottom])
+        out[pair].extend([filename, depth_bottom, depth_bottom - depth_top,
+                         out[pair][1] - depth_bottom, out[pair][2] - (depth_bottom - depth_top)])
 
     # test output
     if flg_test:
