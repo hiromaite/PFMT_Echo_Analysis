@@ -312,7 +312,7 @@ for counter, file in enumerate(tqdm(files, leave=False)):
     if flg_picture_out:
         for i in range(mean_width):
             # calc. average in each rows(= num of mean_width)
-            img[id_top, int(cs_center - (mean_width / 2) + i), 2] = 255
+            img[id_top, int(cs_center - (mean_width / 2) + i), 0] = 255
             img[id_bottom, int(cs_center - (mean_width / 2) + i), 2] = 255
         path_picture = os.path.join(path + '/picture', filename + '.jpg')
         cv2.imwrite(path_picture, img)
