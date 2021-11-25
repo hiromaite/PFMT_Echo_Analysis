@@ -16,6 +16,7 @@ flg_rot = False  # flag to enable rotation function
 flg_test = False  # for review
 flg_figure_out = True  # for review
 flg_picture_out = True  # for review
+flg_raw_out = True  # for write some documents
 
 # For religious reasons, the direction of the tick marks on the diagram should be inward.
 plt.rcParams['xtick.direction'] = 'in'
@@ -119,6 +120,8 @@ if len(files) % 2 != 0:
 
 # (option) make list to store the output data
 out = [[] for i in range(len(files) // 2)]
+raw = [[] for i in range(len(files) + 1)]
+raw[0] = np.arange(0, 17, 17/300)
 
 # iteration per file
 for counter, file in enumerate(tqdm(files, leave=False)):
@@ -147,13 +150,14 @@ for counter, file in enumerate(tqdm(files, leave=False)):
         if not(flg_cmpl):
             break
 
-    # convolve echo image to one-D data
+    # convolve echo image to one-D data and store to output
     one_dim_data = np.zeros((height), np.uint8)
     colmun = np.zeros((height, mean_width), np.uint8)
     for i in range(mean_width):
         # calc. average in each rows(= num of mean_width)
         colmun[:, i] = img[:, int(cs_center - (mean_width / 2) + i), 0]
     one_dim_data = np.average(colmun, axis=1)
+    raw[counter + 1] = np.squeeze(one_dim_data)
 
     # get the convolution integral with the Gaussian function
     x_gauss = np.arange(-10, 10, 20 / 100)
@@ -163,6 +167,7 @@ for counter, file in enumerate(tqdm(files, leave=False)):
 
     # origin correction and normalization based on min and max
     max_conv_data = max(conv_data[15:-15])
+    min_conv_data = min(conv_data[15:-15])
     if min_conv_data > 5:
         id_last_local_min = max(np.squeeze(signal.argrelmin(conv_data[:165])))
         min_conv_data = conv_data[id_last_local_min]
@@ -328,5 +333,11 @@ if flg_test:
 # output lifting height as a CSV file
 path_out = os.path.join(path, 'lifting_height_results.csv')
 with open(path_out, 'w', newline='') as out_file:
-    writer = csv.writer(out_file)
-    writer.writerows(out)
+    writer_output = csv.writer(out_file)
+    writer_output.writerows(out)
+
+# output RAW data as a CSV file
+path_out = os.path.join(path, 'rawdata.csv')
+with open(path_out, 'w', newline='') as raw_file:
+    writer_raw = csv.writer(raw_file)
+    writer_raw.writerows(raw)
