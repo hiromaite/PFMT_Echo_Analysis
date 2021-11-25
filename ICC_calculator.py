@@ -314,6 +314,8 @@ for counter, file in enumerate(tqdm(files, leave=False)):
             # calc. average in each rows(= num of mean_width)
             img[id_top, int(cs_center - (mean_width / 2) + i), 0] = 255
             img[id_bottom, int(cs_center - (mean_width / 2) + i), 2] = 255
+        if not os.path.exists(os.path.join(path + '/picture')):
+            os.makedirs(os.path.join(path + '/picture'))
         path_picture = os.path.join(path + '/picture', filename + '.jpg')
         cv2.imwrite(path_picture, img)
 
