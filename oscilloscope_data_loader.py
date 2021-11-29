@@ -1,6 +1,6 @@
 from tkinter import messagebox
 import os
-import time
+import datetime
 import csv
 
 import numpy as np
@@ -32,39 +32,41 @@ if not idn.startswith("YOKOGAWA"):
 
 # set oscilloscope settings
 inst.write(':COMM:HEAD 0;:WAV:FORM WORD;BYT LSBF')
-inst.write(':WAV:TRACE 1')
-inst.write(':WAV:STAR 0')
-inst.write(':WAV:END 12499')
 
 # get data informations
 wav_start = int(inst.query(':WAV:STAR?'))
 wav_end = int(inst.query(':WAV:END?'))
+wav_leng = int(inst.query(':WAV:LENG?'))
+rec_len = int(inst.query(':ACQ:RLEN?'))
+sample_rate = float(inst.query(':WAV:SRAT?'))
 data_offset = float(inst.query(':WAV:OFFS?'))
 data_range = float(inst.query(':WAV:RANG?'))
 num_record = 1 - int(inst.query(':WAV:REC? MIN'))
+list_ch = [1, 2, 'MATH2']
 print(data_offset, data_range, num_record)
 
 # get waveform
-multi_data = np.zeros((num_record + 1, 12500), float)
+multi_data = np.zeros((len(list_ch), num_record + 1, wav_leng), float)
 x = np.linspace(0, 12499, 12500)
-multi_data[0, :] = x
-for i in tqdm(range(num_record), leave=False):
-    record = ':WAV:REC ' + str(i)
-    inst.write(record)
-    values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=12500)
-    multi_data[i + 1, :] = np.multiply((data_range / 3200), values) + data_offset
-
-plt.plot(x, multi_data[1])
-plt.show()
-
-""" # save waves as csv file
 path ='G:\共有ドライブ\BU301_超音波\グランドプラン\07.膀胱・筋肉量\評価チーム\oscillo_raw'
-date = time.time()
-filename = time.time()
-full_path = os.path.join(path + date, filename + '.csv')
-with open(full_path, 'w', newline='') as out_file:
-    writer_output = csv.writer(out_file)
-    writer_output.writerows(multi_data) """
+d_today = datetime.date.today()
+dt_now = datetime.datetime.now()
+date = str(d_today)
+time = 'rawdata_{:02}{:02}{:02}'.format(dt_now.hour, dt_now.minute, dt_now.second)
+for ch in range(len(list_ch)):
+    multi_data[ch, 0, :] = x
+    inst.write(':WAV:TRACE ' + str(list_ch[ch]))
+    for rec in tqdm(range(num_record), leave=False):
+        record = ':WAV:REC ' + str(rec)
+        inst.write(record)
+        values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=wav_leng)
+        multi_data[ch, rec + 1, :] = np.multiply((data_range / 3200), values) + data_offset
+
+    # save waves as csv file
+    full_path = os.path.join(path, date, time, 'ch.' + str(list_ch[ch]) + '.csv')
+    with open(full_path, 'w', newline='') as out_file:
+        writer_output = csv.writer(out_file)
+        writer_output.writerows(multi_data[ch, :, :])
 
 # finish and clean
 rm.close()
