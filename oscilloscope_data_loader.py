@@ -53,7 +53,8 @@ d_today = datetime.date.today()
 dt_now = datetime.datetime.now()
 date = str(d_today)
 time = 'rawdata_{:02}{:02}{:02}'.format(dt_now.hour, dt_now.minute, dt_now.second)
-for ch in range(len(list_ch)):
+os.makedirs(os.path.join(path, date, time), exist_ok=True)
+for ch in tqdm(range(len(list_ch)), leave=False, desc="Acquiring waveforms..."):
     multi_data[ch, 0, :] = x
     inst.write(':WAV:TRACE ' + str(list_ch[ch]))
     for rec in tqdm(range(num_record), leave=False):
@@ -62,7 +63,8 @@ for ch in range(len(list_ch)):
         values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=wav_leng)
         multi_data[ch, rec + 1, :] = np.multiply((data_range / 3200), values) + data_offset
 
-    # save waves as csv file
+# save waves as csv file
+for ch in tqdm(range(len(list_ch)), leave=False, desc="Saving CSV files..."):
     full_path = os.path.join(path, date, time, 'ch.' + str(list_ch[ch]) + '.csv')
     with open(full_path, 'w', newline='') as out_file:
         writer_output = csv.writer(out_file)
