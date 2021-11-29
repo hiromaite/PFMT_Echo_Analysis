@@ -1,12 +1,14 @@
-import numpy as np
 from tkinter import messagebox
 import os
 import time
 import csv
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 import pyvisa as visa
 from pyvisa.constants import *
-import tqdm
+from tqdm import tqdm
 
 # get resource list and open USB instrument
 rm = visa.ResourceManager()
@@ -28,43 +30,41 @@ if not idn.startswith("YOKOGAWA"):
                          "Opened instrument is not YOKOGAWA oscillo.")
     exit()
 
-# if the buffer size is not enough, specify it here
-# inst.set_buffer(inst, VI_READ_BUF, 512000)
-# inst.set_buffer(inst, VI_WRITE_BUF, 512000)
-
 # set oscilloscope settings
 inst.write(':COMM:HEAD 0;:WAV:FORM WORD;BYT LSBF')
-inst.write(':WAVE:TRACE 2')
-inst.write(':WAVE:START 0')
-inst.write(':WAVE:END 12499')
+inst.write(':WAV:TRACE 1')
+inst.write(':WAV:STAR 0')
+inst.write(':WAV:END 12499')
 
 # get data informations
-data_offset = inst.query(':WAV:OFFS?')
-data_range = inst.query(':WAV:RANG?')
-num_record = 1 - str(inst.query(':WAVeform:RECord? MINimum'))
-
-# set query settings
-inst.values_format.is_binary = True
-inst.values_format.datatype = 'i'
-inst.values_format.is_big_endian = True
-inst.values_format.container = np.array
+wav_start = int(inst.query(':WAV:STAR?'))
+wav_end = int(inst.query(':WAV:END?'))
+data_offset = float(inst.query(':WAV:OFFS?'))
+data_range = float(inst.query(':WAV:RANG?'))
+num_record = 1 - int(inst.query(':WAV:REC? MIN'))
+print(data_offset, data_range, num_record)
 
 # get waveform
-multi_data = np.zeros(num_record, 12500)
-for i in tqdm(range(num_record)):
-    record = ':WAVEFORM:RECORD ' + str(i)
+multi_data = np.zeros((num_record + 1, 12500), float)
+x = np.linspace(0, 12499, 12500)
+multi_data[0, :] = x
+for i in tqdm(range(num_record), leave=False):
+    record = ':WAV:REC ' + str(i)
     inst.write(record)
-    values = inst.query_values(':WAV:SEND?')
-    multi_data[i, :] = (data_range * values / 3200) + data_offset
+    values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=12500)
+    multi_data[i + 1, :] = np.multiply((data_range / 3200), values) + data_offset
 
-# save waves as csv file
+plt.plot(x, multi_data[1])
+plt.show()
+
+""" # save waves as csv file
 path ='G:\共有ドライブ\BU301_超音波\グランドプラン\07.膀胱・筋肉量\評価チーム\oscillo_raw'
 date = time.time()
 filename = time.time()
 full_path = os.path.join(path + date, filename + '.csv')
 with open(full_path, 'w', newline='') as out_file:
     writer_output = csv.writer(out_file)
-    writer_output.writerows(multi_data)
+    writer_output.writerows(multi_data) """
 
 # finish and clean
 rm.close()
