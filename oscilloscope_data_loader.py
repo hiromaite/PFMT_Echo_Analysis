@@ -3,9 +3,9 @@ import os
 import datetime
 import csv
 
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
 import pyvisa as visa
 from pyvisa.constants import *
 from tqdm import tqdm
@@ -18,16 +18,19 @@ if len(list_inst) == 0:
                          "Can't find instrument(s), Please check USB conection")
     exit()
 else:
+    flg_found = False
     for i in range(len(list_inst)):
         if list_inst[i].startswith("USB"):
             inst = rm.open_resource(list_inst[i])
-            break
+            idn = inst.query('*IDN?')
+            if idn.startswith("YOKOGAWA"):
+                flg_found = True
+                break
 
 # check opened instrument is YOKOGAWA or not
-idn = inst.query('*IDN?')
-if not idn.startswith("YOKOGAWA"):
+if not flg_found:
     messagebox.showerror('Error!',
-                         "Opened instrument is not YOKOGAWA oscillo.")
+                         "YOKOGAWA oscillo is not found.")
     exit()
 
 # set oscilloscope settings
@@ -39,15 +42,18 @@ wav_end = int(inst.query(':WAV:END?'))
 wav_leng = int(inst.query(':WAV:LENG?'))
 rec_len = int(inst.query(':ACQ:RLEN?'))
 sample_rate = float(inst.query(':WAV:SRAT?'))
+pos_trigger = int(inst.query(':WAV:TRIG?'))
+time_start = (wav_start - pos_trigger) / sample_rate
+time_end = (wav_end - pos_trigger) / sample_rate
 data_offset = float(inst.query(':WAV:OFFS?'))
 data_range = float(inst.query(':WAV:RANG?'))
 num_record = 1 - int(inst.query(':WAV:REC? MIN'))
 list_ch = [1, 2, 'MATH2']
 print(data_offset, data_range, num_record)
 
-# get waveform
+# acquire waveforms
 multi_data = np.zeros((len(list_ch), num_record + 1, wav_leng), float)
-x = np.linspace(0, 12499, 12500)
+x = np.linspace(time_start, time_end, wav_leng)
 path ='G:\共有ドライブ\BU301_超音波\グランドプラン\07.膀胱・筋肉量\評価チーム\oscillo_raw'
 d_today = datetime.date.today()
 dt_now = datetime.datetime.now()
@@ -62,6 +68,23 @@ for ch in tqdm(range(len(list_ch)), leave=False, desc="Acquiring waveforms..."):
         inst.write(record)
         values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=wav_leng)
         multi_data[ch, rec + 1, :] = np.multiply((data_range / 3200), values) + data_offset
+
+# draw movie file
+path_video = os.path.join(path, date, time, 'video_out.mp4')
+four_cc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+video = cv2.VideoWriter(path_video, four_cc, 8.0, (640, 480))
+for frame in tqdm(range(num_record), leave=False, desc="Drawing graph plot..."):
+    fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
+    ax.plot(x, multi_data[1, frame, :])
+    ax.set_xlabel("ToF [sec]")
+    ax.set_ylabel("Voltage [V]")
+    #ax.set_ylim(0, 180)
+    fig.canvas.draw()
+    image_array = np.array(fig.canvas.renderer.buffer_rgba())
+    img = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
+    video.write(img)
+    plt.close()
+video.release
 
 # save waves as csv file
 for ch in tqdm(range(len(list_ch)), leave=False, desc="Saving CSV files..."):
