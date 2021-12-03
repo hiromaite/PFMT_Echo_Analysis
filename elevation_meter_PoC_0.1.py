@@ -151,7 +151,7 @@ for file in tqdm(files, leave=False):
         out_top.append(- depth_top)
 
         # test output
-        if flg_test_graph_out:
+        if flg_test_graph_out and rec == 0:
             fig_test, ax1 = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
             ax1.plot(x, attnd_data)
             ax1.plot(x, conv_data)
