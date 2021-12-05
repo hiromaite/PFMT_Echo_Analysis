@@ -19,10 +19,10 @@ def gaussian_filter(data, samplerate, freq):
     return out
 
 
-def highpass(data, samplerate, fp, fs):
-    fn = samplerate / 2
-    wp = fp / fn
-    ws = fs / fn
+def highpass_filter(data, samplerate, freq_pass, freq_stop):
+    freq_n = samplerate / 2  # nyquist frequency
+    wp = freq_pass / freq_n
+    ws = freq_stop / freq_n
     gain_pass = 3
     gain_stop = 40
     n, Wn = signal.buttord(wp, ws, gain_pass, gain_stop)
@@ -32,7 +32,8 @@ def highpass(data, samplerate, fp, fs):
 
 
 flg_test_graph_out = False
-samplerate = 1 / ((20 * 0.001 * 0.001) / 1250)
+# osciloscope timescale setting is 1dev = 20us
+sample_rate = 1250 / (20 * 0.001 * 0.001)
 
 # Open file select dialog, check file exist
 root = tkinter.Tk()
@@ -59,7 +60,7 @@ for file in tqdm(files, leave=False):
     # time scale
     x = np.linspace(0, rec_len - 1, rec_len)
     x = x - 0.1 * rec_len  # trigger position
-    x = x * (20 * 0.001 * 0.001) / 1250  # sampling rate (=20us)
+    x = x / sample_rate
     x = x * 1520 * 1000  # speed of sound
 
     out_data = np.zeros((num_rec, rec_len), float)
@@ -67,26 +68,26 @@ for file in tqdm(files, leave=False):
     for rec in tqdm(range(num_rec), leave=False):
         # get the convolution integral with the Gaussian function
         freq = 2 * 1000 * 1000
-        conv_data = gaussian_filter(multi_data[rec], samplerate, freq)
+        conv_data = gaussian_filter(multi_data[rec], sample_rate, freq)
 
         # high-pass filter
         fp = 2 * 1000 * 1000
         fs = 1 * 1000 * 1000
-        hpf_data = highpass(conv_data, samplerate, fp, fs)
+        hpf_data = highpass_filter(conv_data, sample_rate, fp, fs)
 
         # absolute
-        abs_data = abs(hpf_data)
+        abs_hpf_data = abs(hpf_data)
 
         # get the convolution integral with the Gaussian function
         freq = 0.2 * 1000 * 1000
-        conv_data_2 = gaussian_filter(abs_data, samplerate, freq)
+        conv_abs_hpf_data = gaussian_filter(abs_hpf_data, sample_rate, freq)
 
         # get envelope wave
-        envelope = abs(signal.hilbert(hpf_data))
+        env_hpf_data = abs(signal.hilbert(hpf_data))
 
         # get the convolution integral with the Gaussian function
         freq = 0.2 * 1000 * 1000
-        conv_data_3 = gaussian_filter(envelope, samplerate, freq)
+        conv_env_hpf_data = gaussian_filter(env_hpf_data, sample_rate, freq)
 
         """ ratio = conv_data_3[200] / conv_data_2[200]
         conv_data_2 = conv_data_2 * ratio """
@@ -94,26 +95,28 @@ for file in tqdm(files, leave=False):
         # normalized by min & max value while region of Rx signals from body
         region_start = int(0.3 * rec_len)
         region_end = -1 * int(0.1 * rec_len)
-        min_data = min(conv_data_3[region_start: region_end])
-        max_data = max(conv_data_3[region_start: region_end])
-        norm_data = (conv_data_3 - min_data) / (max_data - min_data)
+        min_data = min(conv_env_hpf_data[region_start: region_end])
+        max_data = max(conv_env_hpf_data[region_start: region_end])
+        norm_conv_env_hpf_data = (
+            conv_env_hpf_data - min_data) / (max_data - min_data)
 
         # get integrated values
-        int_data = norm_data.copy()
+        int_data = norm_conv_env_hpf_data.copy()
         for i in range(rec_len - 1):
-            int_data[i + 1] = int_data[i] + norm_data[i + 1]
+            int_data[i + 1] = int_data[i] + norm_conv_env_hpf_data[i + 1]
         int_data = int_data / int_data[-1]
-        
+
         # make attenuation function
         db = (x / 10) * -1
         db = np.multiply(db, int_data)
         attn = 10 ** (db / 20)
-        attn_data = norm_data / attn
-        out_data[rec, :] = attn_data
+        attn_norm_conv_env_hpf_data = norm_conv_env_hpf_data / attn
+        out_data[rec, :] = attn_norm_conv_env_hpf_data
 
         # test output
         if flg_test_graph_out:
-            fig_test, ax1 = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
+            fig_test, ax1 = plt.subplots(
+                figsize=(6.4, 4.8))  # default dpi = 100
             #ax1.plot(x, multi_data[0])
             #ax1.plot(x, conv_data)
             #ax1.plot(x, hpf_data)
@@ -121,9 +124,9 @@ for file in tqdm(files, leave=False):
             #ax1.plot(x, conv_data_2)
             #ax1.plot(x, envelope)
             #ax1.plot(x, conv_data_3)
-            ax1.plot(x, norm_data)
+            ax1.plot(x, norm_conv_env_hpf_data)
             #ax2 = ax1.twinx()
-            ax1.plot(x, attn_data)
+            ax1.plot(x, attn_norm_conv_env_hpf_data)
             #ax2.plot(x, multi_data[0])
             ax1.set_xlabel("Depth [mm]")
             ax1.set_ylabel("Intensity [arb. Unit]")
