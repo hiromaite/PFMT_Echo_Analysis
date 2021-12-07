@@ -70,7 +70,7 @@ for file in tqdm(files, leave=False):
     out_data = np.zeros((num_rec, rec_len), float)
 
     # Gaussian function
-    x_gauss = np.arange(-10, 10, 20 / 1000)
+    x_gauss = np.arange(-4, 4, 8 / 1000)
     weight = norm.pdf(x_gauss)
 
     for rec in tqdm(range(num_rec), leave=False):
@@ -91,12 +91,14 @@ for file in tqdm(files, leave=False):
         conv_env_hpf_data = gaussian_filter(env_hpf_data, sample_rate, freq)
 
         # normalized by min & max value while region of Rx signals from body
-        """ region_start = int(0.3 * rec_len)
-        region_end = -1 * int(0.1 * rec_len)
+        conv_env_hpf_data[0: int(0.2 * rec_len)] = 0
+        conv_env_hpf_data[int(-0.05 * rec_len):] = 0
+        region_start = int(0.4 * rec_len)
+        region_end = -1
         min_data = min(conv_env_hpf_data[region_start: region_end])
         max_data = max(conv_env_hpf_data[region_start: region_end])
         norm_conv_env_hpf_data = (
-            conv_env_hpf_data - min_data) / (max_data - min_data) """
+            conv_env_hpf_data - min_data) / (max_data - min_data)
 
         # get integrated values
         int_data = conv_env_hpf_data.copy()
@@ -105,21 +107,21 @@ for file in tqdm(files, leave=False):
         int_data = int_data / int_data[-1]
 
         # make attenuation function
-        #db = (x / 10) * -1
-        #db = np.multiply(db, int_data)
-        #attn = 10 ** (db / 20)
-        #attn_norm_conv_env_hpf_data = norm_conv_env_hpf_data / attn
-        attn_norm_conv_env_hpf_data = np.multiply(conv_env_hpf_data, int_data**12) - 0.00005
-        attn_norm_conv_env_hpf_data = np.where(attn_norm_conv_env_hpf_data < 0, 0, attn_norm_conv_env_hpf_data)
-        attn_norm_conv_env_hpf_data = np.where(attn_norm_conv_env_hpf_data >= 0.0003, 0.0003, attn_norm_conv_env_hpf_data)
-        out_raw = attn_norm_conv_env_hpf_data / 0.0003
+        db = (x / 10) * -1
+        db = np.multiply(db, int_data)
+        attn = 10 ** (db / 20)
+        out_raw = conv_env_hpf_data / attn
+        #attn_norm_conv_env_hpf_data = np.multiply(conv_env_hpf_data, int_data**12) - 0.00005
+        #attn_norm_conv_env_hpf_data = np.where(attn_norm_conv_env_hpf_data < 0, 0, attn_norm_conv_env_hpf_data)
+        #attn_norm_conv_env_hpf_data = np.where(attn_norm_conv_env_hpf_data >= 0.0003, 0.0003, attn_norm_conv_env_hpf_data)
+        #out_raw = attn_norm_conv_env_hpf_data / 0.0003
         out_data[rec, :] = out_raw
 
         conv_data = np.convolve(out_raw, weight, mode='same') / np.sum(weight)
 
         # origin correction and normalization based on min and max
-        max_conv_data = max(conv_data[15:-15])
-        min_conv_data = min(conv_data[15:-15])
+        max_conv_data = max(conv_data[int(0.3 * rec_len): int(-0.1 * rec_len)])
+        min_conv_data = min(conv_data[int(0.3 * rec_len): int(-0.1 * rec_len)])
         conv_data_norm = ((conv_data - min_conv_data)
                         / (max_conv_data - min_conv_data))
 
@@ -197,6 +199,8 @@ for file in tqdm(files, leave=False):
         else:
             id_bottom = id_shallow_start
         depth_bottom = (id_bottom - 1250) * cpd
+        if depth_bottom < 5 and len(out_bottom) > 0:
+            depth_bottom = - out_bottom[-1]
         out_bottom.append(- depth_bottom)
 
         # select peak and define depth of bladder top
@@ -210,8 +214,11 @@ for file in tqdm(files, leave=False):
                 id_top = i
                 break
         depth_top = (id_top - 1250) * cpd
+        if depth_top < 5 and len(out_top) > 0:
+            depth_top = - out_top[-1]
+        if len(out_top) > 1 and depth_top > -1 * max(out_bottom[1: -1]):
+            depth_top = - out_top[-1]
         out_top.append(- depth_top)
-
 
         # test output
         if flg_test_graph_out and rec == 0:
@@ -237,7 +244,10 @@ for file in tqdm(files, leave=False):
             fig_test.show()
             messagebox.showinfo('Information', "Execution has done")
             exit()
-    
+
+    #out_bottom = gaussian_filter(out_bottom, 10, 1)
+    #out_top = gaussian_filter(out_top, 10, 1)
+
     # graph out
     t = np.linspace(0, 24, num_rec)
     fig, ax = plt.subplots(figsize=(6.4, 4.8))
@@ -259,7 +269,7 @@ for file in tqdm(files, leave=False):
         for frame in tqdm(range(num_rec), leave=False, desc="Drawing graph plot..."):
             fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
             ax.plot(x, out_data[frame, :])
-            ax.set_ylim(-0.1, 1.1)
+            #ax.set_ylim(-0.1, 1.1)
             ax.set_xlabel("Depth [mm]")
             ax.set_ylabel("Intensity [arb. Unit]")
             fig.canvas.draw()
