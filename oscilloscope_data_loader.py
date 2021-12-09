@@ -54,7 +54,7 @@ print(data_offset, data_range, num_record)
 # acquire waveforms
 multi_data = np.zeros((len(list_ch), num_record + 1, wav_leng), float)
 x = np.linspace(time_start, time_end, wav_leng)
-path ='G:\共有ドライブ\BU301_超音波\グランドプラン\07.膀胱・筋肉量\評価チーム\oscillo_raw'
+path = r'G:\共有ドライブ\BU301_超音波\グランドプラン\07.膀胱・筋肉量\評価チーム\oscillo_raw'
 d_today = datetime.date.today()
 dt_now = datetime.datetime.now()
 date = str(d_today)
@@ -64,7 +64,7 @@ for ch in tqdm(range(len(list_ch)), leave=False, desc="Acquiring waveforms..."):
     multi_data[ch, 0, :] = x
     inst.write(':WAV:TRACE ' + str(list_ch[ch]))
     for rec in tqdm(range(num_record), leave=False):
-        record = ':WAV:REC ' + str(rec)
+        record = ':WAVEFORM:RECORD ' + str(rec)
         inst.write(record)
         values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=wav_leng)
         multi_data[ch, rec + 1, :] = np.multiply((data_range / 3200), values) + data_offset
@@ -78,7 +78,7 @@ for frame in tqdm(range(num_record), leave=False, desc="Drawing graph plot..."):
     ax.plot(x, multi_data[1, frame, :])
     ax.set_xlabel("ToF [sec]")
     ax.set_ylabel("Voltage [V]")
-    ax.text(0.01, 0.99, "Record num = " + str(num_record), verticalalignment='top', transform=ax.transAxes)
+    ax.text(0.01, 0.99, "Record num = " + str(frame), verticalalignment='top', transform=ax.transAxes)
     #ax.set_ylim(0, 180)
     fig.canvas.draw()
     image_array = np.array(fig.canvas.renderer.buffer_rgba())
