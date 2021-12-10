@@ -64,8 +64,7 @@ for ch in tqdm(range(len(list_ch)), leave=False, desc="Acquiring waveforms..."):
     multi_data[ch, 0, :] = x
     inst.write(':WAV:TRACE ' + str(list_ch[ch]))
     for rec in tqdm(range(num_record), leave=False):
-        record = ':WAVEFORM:RECORD ' + str(rec)
-        inst.write(record)
+        inst.write(':WAV:REC ' + str(1 + rec - num_record))
         values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=wav_leng)
         multi_data[ch, rec + 1, :] = np.multiply((data_range / 3200), values) + data_offset
 
