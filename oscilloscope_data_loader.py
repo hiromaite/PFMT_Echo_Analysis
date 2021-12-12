@@ -91,7 +91,7 @@ for ch in tqdm(range(len(list_ch)), leave=False, desc="Saving CSV files..."):
     full_path = os.path.join(path, date, time, 'ch.' + str(list_ch[ch]) + '.csv')
     with open(full_path, 'w', newline='') as out_file:
         writer_output = csv.writer(out_file)
-        writer_output.writerows(multi_data[ch, :, :])
+        writer_output.writerows(multi_data[ch, :, :].T)
 
 # finish and clean
 rm.close()
