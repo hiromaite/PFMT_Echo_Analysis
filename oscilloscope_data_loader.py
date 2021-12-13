@@ -48,8 +48,7 @@ time_end = (wav_end - pos_trigger) / sample_rate
 data_offset = float(inst.query(':WAV:OFFS?'))
 data_range = float(inst.query(':WAV:RANG?'))
 num_record = 1 - int(inst.query(':WAV:REC? MIN'))
-list_ch = [1, 2, 'MATH2']
-print(data_offset, data_range, num_record)
+list_ch = ['1', '2', 'MATH2']
 
 # acquire waveforms
 multi_data = np.zeros((len(list_ch), num_record + 1, wav_leng), float)
@@ -58,15 +57,18 @@ path = r'G:\共有ドライブ\BU301_超音波\グランドプラン\07.膀胱�
 d_today = datetime.date.today()
 dt_now = datetime.datetime.now()
 date = str(d_today)
-time = 'rawdata_{:02}{:02}{:02}'.format(dt_now.hour, dt_now.minute, dt_now.second)
+time = 'rawdata_{:02}{:02}{:02}'.format(
+    dt_now.hour, dt_now.minute, dt_now.second)
 os.makedirs(os.path.join(path, date, time), exist_ok=True)
 for ch in tqdm(range(len(list_ch)), leave=False, desc="Acquiring waveforms..."):
     multi_data[ch, 0, :] = x
-    inst.write(':WAV:TRACE ' + str(list_ch[ch]))
+    inst.write(':WAV:TRACE ' + list_ch[ch])
     for rec in tqdm(range(num_record), leave=False):
         inst.write(':WAV:REC ' + str(1 + rec - num_record))
-        values = inst.query_binary_values(':WAV:SEND?', datatype='h', data_points=wav_leng)
-        multi_data[ch, rec + 1, :] = np.multiply((data_range / 3200), values) + data_offset
+        values = inst.query_binary_values(
+            ':WAV:SEND?', datatype='h', data_points=wav_leng)
+        multi_data[ch, rec + 1, :] = np.multiply(
+            (data_range / 3200), values) + data_offset
 
 # draw movie file
 path_video = os.path.join(path, date, time, 'video_out.mp4')
@@ -77,7 +79,8 @@ for frame in tqdm(range(num_record), leave=False, desc="Drawing graph plot..."):
     ax.plot(x, multi_data[1, frame, :])
     ax.set_xlabel("ToF [sec]")
     ax.set_ylabel("Voltage [V]")
-    ax.text(0.01, 0.99, "Record num = " + str(frame), verticalalignment='top', transform=ax.transAxes)
+    ax.text(0.01, 0.99, "Record num = " + str(frame),
+            verticalalignment='top', transform=ax.transAxes)
     #ax.set_ylim(0, 180)
     fig.canvas.draw()
     image_array = np.array(fig.canvas.renderer.buffer_rgba())
@@ -88,7 +91,7 @@ video.release
 
 # save waves as csv file
 for ch in tqdm(range(len(list_ch)), leave=False, desc="Saving CSV files..."):
-    full_path = os.path.join(path, date, time, 'ch.' + str(list_ch[ch]) + '.csv')
+    full_path = os.path.join(path, date, time, 'ch.' + list_ch[ch] + '.csv')
     with open(full_path, 'w', newline='') as out_file:
         writer_output = csv.writer(out_file)
         writer_output.writerows(multi_data[ch, :, :].T)
