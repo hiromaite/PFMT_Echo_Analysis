@@ -45,8 +45,6 @@ sample_rate = float(inst.query(':WAV:SRAT?'))
 pos_trigger = int(inst.query(':WAV:TRIG?'))
 time_start = (wav_start - pos_trigger) / sample_rate
 time_end = (wav_end - pos_trigger) / sample_rate
-data_offset = float(inst.query(':WAV:OFFS?'))
-data_range = float(inst.query(':WAV:RANG?'))
 num_record = 1 - int(inst.query(':WAV:REC? MIN'))
 list_ch = ['1', '2', 'MATH2']
 
@@ -63,6 +61,8 @@ os.makedirs(os.path.join(path, date, time), exist_ok=True)
 for ch in tqdm(range(len(list_ch)), leave=False, desc="Acquiring waveforms..."):
     multi_data[ch, 0, :] = x
     inst.write(':WAV:TRACE ' + list_ch[ch])
+    data_offset = float(inst.query(':WAV:OFFS?'))
+    data_range = float(inst.query(':WAV:RANG?'))
     for rec in tqdm(range(num_record), leave=False):
         inst.write(':WAV:REC ' + str(1 + rec - num_record))
         values = inst.query_binary_values(
