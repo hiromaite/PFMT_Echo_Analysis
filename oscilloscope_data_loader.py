@@ -76,7 +76,7 @@ four_cc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
 video = cv2.VideoWriter(path_video, four_cc, 8.0, (640, 480))
 for frame in tqdm(range(num_record), leave=False, desc="Drawing graph plot..."):
     fig, ax = plt.subplots(figsize=(6.4, 4.8))  # default dpi = 100
-    ax.plot(x, multi_data[1, frame, :])
+    ax.plot(x[::10], multi_data[1, frame, ::10])  # data points was reduced to improve drawing speed and reduce memory usage
     ax.set_xlabel("ToF [sec]")
     ax.set_ylabel("Voltage [V]")
     ax.text(0.01, 0.99, "Record num = " + str(frame),
