@@ -10,6 +10,10 @@ from scipy.stats import norm
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+# For religious reasons, the direction of the tick marks on the diagram should be inward.
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+
 
 def gaussian_filter(data, samplerate, freq):
     # get the convolution integral with the Gaussian function
@@ -221,26 +225,27 @@ for file in tqdm(files, leave=False):
         out_top.append(- depth_top)
 
         # test output
-        if flg_test_graph_out and rec == 0:
+        if flg_test_graph_out and rec == 300:
             fig_test, ax1 = plt.subplots(
-                figsize=(6.4, 4.8))  # default dpi = 100
+                figsize=(10, 4))  # default dpi = 100
             #ax1.plot(x, multi_data[rec], label='RAW data')
             #ax1.plot(x, conv_data, label='Low pass filtered')
             #ax1.plot(x, hpf_data, label='High pass filtered')
             #ax1.plot(x, env_hpf_data, label='Envelope')
             #ax1.plot(x, conv_env_hpf_data, label='Convolved w/ Gaussian(200kHz width)')
-            ax1.plot(x, conv_env_hpf_data, label='Convolved w/ Gaussian(200kHz width)')
-            ax2 = ax1.twinx()
-            ax2.plot(x, int_data, color='C1', label='Integral of intensity')
-            ax3 = ax1.twinx()
+            #ax1.plot(x, conv_env_hpf_data, label='Convolved w/ Gaussian(200kHz width)')
+            #ax2 = ax1.twinx()
+            #ax2.plot(x, int_data, color='C1', label='Integral of intensity')
+            #ax3 = ax1.twinx()
             #ax3.plot(x, attn, color='C2', label='Attenuation function')
-            ax3.plot(x, attn_norm_conv_env_hpf_data, color='C3', label='Normalized by attenuation function')
+            ax1.plot(x, out_raw, color='C0', label='Normalized by attenuation function')
             ax1.set_xlabel("Depth [mm]")
             ax1.set_ylabel("Intensity [arb. Unit]")
-            h1, l1 = ax1.get_legend_handles_labels()
-            h2, l2 = ax2.get_legend_handles_labels()
-            h3, l3 = ax3.get_legend_handles_labels()
-            ax1.legend(h1 + h2 + h3, l1 + l2 + l3)
+            #h1, l1 = ax1.get_legend_handles_labels()
+            #h2, l2 = ax2.get_legend_handles_labels()
+            #h3, l3 = ax3.get_legend_handles_labels()
+            #ax1.legend(h1 + h2 + h3, l1 + l2 + l3)
+            ax1.legend()
             fig_test.show()
             messagebox.showinfo('Information', "Execution has done")
             exit()
@@ -276,5 +281,6 @@ for file in tqdm(files, leave=False):
             image_array = np.array(fig.canvas.renderer.buffer_rgba())
             img = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
             video.write(img)
+            plt.clf
             plt.close()
         video.release
